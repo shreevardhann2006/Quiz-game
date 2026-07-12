@@ -72,12 +72,16 @@ function switchScreen(hideId, showId) {
 }
 
 // -- Global Variables --
-let peer = null;
+// ====== SUPABASE CONFIGURATION ======
+const SUPABASE_URL = 'https://abrbzjwqnpfjdxiczios.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicmJ6andxbnBmamR4aWN6aW9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NTkzMjgsImV4cCI6MjA5OTQzNTMyOH0.teHB69quVTgheyWbSdZtex0_k4R0_O59EtyTUbunBqM';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let gameChannel = null;
 let isHost = false;
-let hostConn = null; // for player
 
 // Host State
-let players = {}; // { peerId: { name, score, connection, answered, lastPoints } }
+let players = {}; // { senderId: { name, score, answered, lastPoints } }
 let currentQuestion = -1;
 let timerInterval = null;
 let timeRemaining = 0;
@@ -98,36 +102,27 @@ function initHost() {
     const pin = Math.floor(1000 + Math.random() * 9000).toString();
     document.getElementById('host-pin').innerText = pin;
     
-    // We prefix the pin to avoid collisions on the public PeerJS server
-    peer = new Peer('QUIZ-GAMER-' + pin);
+    gameChannel = supabaseClient.channel('game-' + pin);
     
-    peer.on('open', (id) => {
-        console.log('Host ID:', id);
-        switchScreen('role-screen', 'host-lobby-screen');
-    });
-
-    peer.on('connection', (conn) => {
-        conn.on('data', (data) => {
-            handleClientMessage(conn, data);
-        });
-        conn.on('close', () => {
-            if (players[conn.peer]) {
-                delete players[conn.peer];
-                updateLobbyPlayers();
-            }
-        });
+    gameChannel.on('broadcast', { event: 'client-message' }, (payload) => {
+        handleClientMessage(payload.payload.sender, payload.payload.data);
     });
     
-    peer.on('error', (err) => { alert('Network Error: ' + err.type); });
+    gameChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+            console.log('Host Channel Created:', pin);
+            switchScreen('role-screen', 'host-lobby-screen');
+        }
+    });
 }
 
-function handleClientMessage(conn, data) {
+function handleClientMessage(senderId, data) {
     if (data.type === 'join') {
-        players[conn.peer] = { name: data.name, score: 0, connection: conn, answered: false, lastPoints: 0 };
-        conn.send({ type: 'join-success' });
+        players[senderId] = { name: data.name, score: 0, answered: false, lastPoints: 0 };
+        gameChannel.send({ type: 'broadcast', event: 'host-message', payload: { target: senderId, data: { type: 'join-success' } } });
         updateLobbyPlayers();
     } else if (data.type === 'submit-answer') {
-        const p = players[conn.peer];
+        const p = players[senderId];
         if (p && !p.answered && currentQuestion >= 0) {
             p.answered = true;
             answerCount++;
@@ -136,18 +131,16 @@ function handleClientMessage(conn, data) {
             const isCorrect = (data.answer === questions[currentQuestion].answer);
             let pts = 0;
             if (isCorrect) {
-                // max 1000, min 500
                 pts = Math.floor(500 + (500 * (timeRemaining / QUESTION_TIME)));
                 p.score += pts;
             } else {
-                // 1/3 negative marking (max mark is 1000, 1/3 is approx 333)
                 pts = -333;
                 p.score += pts;
             }
             p.lastPoints = pts;
             p.lastCorrect = isCorrect;
             
-            conn.send({ type: 'answer-received' }); // acknowledge
+            gameChannel.send({ type: 'broadcast', event: 'host-message', payload: { target: senderId, data: { type: 'answer-received' } } });
             
             if (answerCount >= Object.keys(players).length) {
                 endQuestion();
@@ -304,38 +297,44 @@ function showHostLeaderboard(isFinal) {
 }
 
 function broadcast(data) {
-    Object.keys(players).forEach(k => {
-        players[k].connection.send(data);
-    });
+    if (gameChannel) {
+        gameChannel.send({ type: 'broadcast', event: 'host-message', payload: { data: data } });
+    }
 }
 
 
 // ======================== PLAYER LOGIC ========================
+let myPlayerId = Math.random().toString(36).substring(7);
 
 document.getElementById('btn-join-game').onclick = () => {
     const pin = document.getElementById('input-pin').value.trim();
     const name = document.getElementById('input-name').value.trim();
-    const err = document.getElementById('join-error');
+    const errorText = document.getElementById('join-error');
+    errorText.innerText = "Connecting to game...";
     
-    if (!pin || !name) { err.innerText = "Please enter PIN and Name!"; return; }
+    if (!pin || !name) { errorText.innerText = "Please enter PIN and Name!"; return; }
     
     playSound('pop');
-    err.innerText = "Connecting...";
     
-    peer = new Peer();
-    peer.on('open', (id) => {
-        hostConn = peer.connect('QUIZ-GAMER-' + pin, { reliable: true });
+    try {
+        gameChannel = supabaseClient.channel('game-' + pin);
         
-        hostConn.on('open', () => {
-            hostConn.send({ type: 'join', name: name });
+        gameChannel.on('broadcast', { event: 'host-message' }, (payload) => {
+            if (payload.payload.target && payload.payload.target !== myPlayerId) return; // ignore messages for other players
+            handleHostMessage(payload.payload.data);
         });
         
-        hostConn.on('data', (data) => {
-            handleHostMessage(data);
+        gameChannel.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                errorText.innerText = "Joined! Waiting for host...";
+                gameChannel.send({ type: 'broadcast', event: 'client-message', payload: { sender: myPlayerId, data: { type: 'join', name: name } } });
+            } else if (status === 'CHANNEL_ERROR') {
+                errorText.innerText = "Failed to connect to game server.";
+            }
         });
-        
-        hostConn.on('error', () => { err.innerText = "Failed to connect."; });
-    });
+    } catch(e) {
+        errorText.innerText = "Crash: " + e.message;
+    }
 };
 
 function handleHostMessage(data) {
@@ -413,10 +412,10 @@ function handleHostMessage(data) {
 
 document.querySelectorAll('.player-btn').forEach(btn => {
     btn.onclick = () => {
-        if (!hostConn) return;
+        if (!gameChannel) return;
         playSound('pop');
         const idx = parseInt(btn.getAttribute('data-idx'));
-        hostConn.send({ type: 'submit-answer', answer: idx });
+        gameChannel.send({ type: 'broadcast', event: 'client-message', payload: { sender: myPlayerId, data: { type: 'submit-answer', answer: idx } } });
         document.querySelectorAll('.player-btn').forEach(b => b.disabled = true);
     };
 });
