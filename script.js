@@ -251,7 +251,7 @@ function endQuestion() {
         const p = players[k];
         // If they didn't answer, they get 0
         if(!p.answered) { p.lastPoints = 0; p.lastCorrect = false; }
-        p.connection.send({ type: 'question-result', correct: p.lastCorrect, points: p.lastPoints, totalScore: p.score });
+        gameChannel.send({ type: 'broadcast', event: 'host-message', payload: { target: k, data: { type: 'question-result', correct: p.lastCorrect, points: p.lastPoints, totalScore: p.score } } });
     });
     
     // Show Answer Reveal for 2 seconds, then show Leaderboard
