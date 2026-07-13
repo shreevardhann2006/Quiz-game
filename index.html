@@ -104,40 +104,8 @@
             <h1>Join Game</h1>
             <input type="text" id="input-pin" class="cool-input" placeholder="Enter Game PIN" maxlength="4">
             <input type="text" id="input-name" class="cool-input" placeholder="Enter Nickname" maxlength="12">
-            
-            <h3 style="margin-top: 15px; margin-bottom: 10px; font-weight: 800;">Choose Your Class</h3>
-            <div class="class-selector">
-                <div class="class-card active" data-role="Warrior">
-                    <div class="class-card-icon">⚔️</div>
-                    <div class="class-card-info">
-                        <div class="class-card-name">Warrior</div>
-                        <div class="class-card-desc">High Damage (400 DMG)</div>
-                    </div>
-                </div>
-                <div class="class-card" data-role="Rogue">
-                    <div class="class-card-icon">🗡️</div>
-                    <div class="class-card-info">
-                        <div class="class-card-name">Rogue</div>
-                        <div class="class-card-desc">Crit Chance (250/750 DMG)</div>
-                    </div>
-                </div>
-                <div class="class-card" data-role="Mage">
-                    <div class="class-card-icon">🔮</div>
-                    <div class="class-card-info">
-                        <div class="class-card-name">Mage</div>
-                        <div class="class-card-desc">Spell Combo (+0.5x Dmg)</div>
-                    </div>
-                </div>
-                <div class="class-card" data-role="Cleric">
-                    <div class="class-card-icon">💖</div>
-                    <div class="class-card-info">
-                        <div class="class-card-name">Cleric</div>
-                        <div class="class-card-desc">Heal (8 HP + 100 DMG)</div>
-                    </div>
-                </div>
-            </div>
 
-            <button id="btn-join-game" class="bouncy-btn secondary-btn" style="margin-top: 20px;">JOIN THE RAID</button>
+            <button id="btn-join-game" class="bouncy-btn secondary-btn" style="margin-top: 20px;">JOIN THE GAME</button>
             <p id="join-error" class="error-text"></p>
         </div>
 
@@ -151,8 +119,7 @@
         <!-- Player Answer Screen (4 big buttons) -->
         <div id="player-answer-screen" class="screen hidden">
             <div class="hud" style="display: flex; justify-content: space-between; align-items: center;">
-                <div class="player-role-tag" id="player-role-display">⚔️ Warrior</div>
-                <div class="score-display">💥 <span id="player-score">0</span> Contribution</div>
+                <div class="score-display">🏆 Quiz Score: <span id="player-score">0</span></div>
             </div>
             <div class="question-container" style="min-height: auto; margin-bottom: 15px;">
                 <h2 id="player-question-text" style="font-size: 20px; margin-bottom: 10px;">Question goes here?</h2>
@@ -170,8 +137,9 @@
         <div id="player-feedback-screen" class="screen hidden">
             <img id="player-feedback-image" src="" alt="Feedback Animation" class="feedback-anim">
             <h1 id="player-feedback-text">Awesome!</h1>
-            <div class="points-awarded"><span id="player-points">+0 DMG</span></div>
-            <p>Total Contribution: <span id="player-score-total">0</span></p>
+            <div class="points-awarded"><span id="player-points">+300 DMG</span></div>
+            <h3 id="player-earned-points-display" style="font-size: 24px; font-weight: 800; color: var(--secondary-shadow); margin-bottom: 15px;">+0 Quiz Points</h3>
+            <p>Total Score: <span id="player-score-total">0</span></p>
         </div>
 
         <!-- End Result Screen (Host and Player) -->

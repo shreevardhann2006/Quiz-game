@@ -80,13 +80,6 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let gameChannel = null;
 let isHost = false;
 
-// RPG Classes Configuration
-const ROLES = {
-    Warrior: { icon: "⚔️", desc: "Warrior", dmg: 400, heal: 0, multiplier: 0, critChance: 0 },
-    Rogue: { icon: "🗡️", desc: "Rogue", dmg: 250, heal: 0, multiplier: 0, critChance: 0.35, critDmg: 750 },
-    Mage: { icon: "🔮", desc: "Mage", dmg: 200, heal: 0, multiplier: 0.5, critChance: 0 },
-    Cleric: { icon: "💖", desc: "Cleric", dmg: 100, heal: 8, multiplier: 0, critChance: 0 }
-};
 
 // RPG Bosses Configuration
 const BOSSES = [
@@ -139,13 +132,14 @@ function initHost() {
 
 function handleClientMessage(senderId, data) {
     if (data.type === 'join') {
-        players[senderId] = { name: data.name, role: data.role || 'Warrior', score: 0, answered: false, lastPoints: 0, lastCorrect: false };
-        gameChannel.send({ type: 'broadcast', event: 'host-message', payload: { target: senderId, data: { type: 'join-success', role: data.role || 'Warrior' } } });
+        players[senderId] = { name: data.name, score: 0, answered: false, lastPoints: 0, lastCorrect: false };
+        gameChannel.send({ type: 'broadcast', event: 'host-message', payload: { target: senderId, data: { type: 'join-success' } } });
         updateLobbyPlayers();
     } else if (data.type === 'submit-answer') {
         const p = players[senderId];
         if (p && !p.answered && currentQuestion >= 0) {
             p.answered = true;
+            p.timeRemainingAtAnswer = timeRemaining;
             answerCount++;
             document.getElementById('host-answers-count').innerText = answerCount;
             
@@ -168,8 +162,7 @@ function updateLobbyPlayers() {
     keys.forEach(k => {
         const b = document.createElement('div');
         b.className = 'player-badge';
-        const roleIcon = ROLES[players[k].role]?.icon || '⚔️';
-        b.innerText = `${roleIcon} ${players[k].name}`;
+        b.innerText = `🎮 ${players[k].name}`;
         list.appendChild(b);
     });
     const startBtn = document.getElementById('btn-start-game');
@@ -306,7 +299,6 @@ function endQuestion() {
 
     let totalDamage = 0;
     let totalHealing = 0;
-    let mageMultiplierBonus = 0;
     let battleLogs = [];
     let incorrectCount = 0;
 
@@ -315,48 +307,29 @@ function endQuestion() {
         const p = players[k];
         if (!p.answered) {
             p.lastCorrect = false;
+            p.timeRemainingAtAnswer = 0;
         }
 
-        const role = p.role || 'Warrior';
-        const roleStats = ROLES[role] || ROLES.Warrior;
-
         if (p.lastCorrect) {
-            let dmg = roleStats.dmg;
-            let heal = roleStats.heal;
+            const dmg = 300;
+            const heal = 5;
 
-            if (role === 'Rogue') {
-                if (Math.random() < roleStats.critChance) {
-                    dmg = roleStats.critDmg;
-                    battleLogs.push(`🗡️ Rogue ${p.name} CRITICAL HIT for ${dmg} DMG!`);
-                } else {
-                    battleLogs.push(`🗡️ Rogue ${p.name} slashed for ${dmg} DMG!`);
-                }
-            } else if (role === 'Warrior') {
-                battleLogs.push(`⚔️ Warrior ${p.name} dealt ${dmg} DMG!`);
-            } else if (role === 'Mage') {
-                mageMultiplierBonus += roleStats.multiplier;
-                battleLogs.push(`🔮 Mage ${p.name} cast Spell! (+0.5x combo)`);
-            } else if (role === 'Cleric') {
-                battleLogs.push(`💖 Cleric ${p.name} healed party for ${heal} HP & dealt ${dmg} DMG!`);
-            }
+            battleLogs.push(`⚡ ${p.name} hit the boss! (+300 DMG, +5 HP)`);
 
             totalDamage += dmg;
             totalHealing += heal;
-            p.lastPoints = dmg + heal * 10; // contribution points
+            
+            // Standardized Kahoot-like point system: base 1000 + (seconds remaining * 50)
+            const remainingTime = p.timeRemainingAtAnswer !== undefined ? p.timeRemainingAtAnswer : 0;
+            p.lastPoints = 1000 + (remainingTime * 50);
             p.score += p.lastPoints;
         } else {
             incorrectCount++;
-            battleLogs.push(`💀 ${p.name} missed their action!`);
-            p.lastPoints = 0;
+            battleLogs.push(`💀 ${p.name} had signal interference (incorrect/no answer)!`);
+            p.lastPoints = -333;
+            p.score = Math.max(0, p.score + p.lastPoints);
         }
     });
-
-    // Apply multiplier from Mages
-    const finalMultiplier = 1.0 + mageMultiplierBonus;
-    if (mageMultiplierBonus > 0 && totalDamage > 0) {
-        totalDamage = Math.floor(totalDamage * finalMultiplier);
-        battleLogs.push(`✨ Mage combo multiplied team damage to ${totalDamage}!`);
-    }
 
     // Boss damage calculation
     const currentBoss = BOSSES[activeBossIndex];
@@ -455,8 +428,7 @@ function showHostLeaderboard(isFinal, isVictory) {
     sorted.forEach((p, i) => {
         const item = document.createElement('div');
         item.className = `leaderboard-item ${i < 3 ? 'rank-'+(i+1) : ''}`;
-        const roleIcon = ROLES[p.role]?.icon || '⚔️';
-        item.innerHTML = `<span>#${i+1} ${roleIcon} ${p.name} (${p.role})</span> <span>${p.score} Contribution</span>`;
+        item.innerHTML = `<span>#${i+1} 🎮 ${p.name}</span> <span>${p.score.toLocaleString()} Points</span>`;
         list.appendChild(item);
     });
     
@@ -495,17 +467,6 @@ function broadcast(data) {
 
 // ======================== PLAYER LOGIC ========================
 let myPlayerId = Math.random().toString(36).substring(7);
-let myRole = 'Warrior';
-
-// Class Selector Setup
-document.querySelectorAll('.class-card').forEach(card => {
-    card.onclick = () => {
-        document.querySelectorAll('.class-card').forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
-        myRole = card.getAttribute('data-role');
-        playSound('pop');
-    };
-});
 
 document.getElementById('btn-join-game').onclick = () => {
     const pin = document.getElementById('input-pin').value.trim();
@@ -528,7 +489,7 @@ document.getElementById('btn-join-game').onclick = () => {
         gameChannel.subscribe((status) => {
             if (status === 'SUBSCRIBED') {
                 errorText.innerText = "Joined! Waiting for host...";
-                gameChannel.send({ type: 'broadcast', event: 'client-message', payload: { sender: myPlayerId, data: { type: 'join', name: name, role: myRole } } });
+                gameChannel.send({ type: 'broadcast', event: 'client-message', payload: { sender: myPlayerId, data: { type: 'join', name: name } } });
             } else if (status === 'CHANNEL_ERROR') {
                 errorText.innerText = "Failed to connect to game server.";
             }
@@ -540,16 +501,12 @@ document.getElementById('btn-join-game').onclick = () => {
 
 function handleHostMessage(data) {
     if (data.type === 'join-success') {
-        myRole = data.role || 'Warrior';
         switchScreen('player-join-screen', 'player-waiting-screen');
     } 
     else if (data.type === 'game-starting') {
         document.getElementById('player-waiting-text').innerText = "Get Ready!";
     }
     else if (data.type === 'new-question') {
-        // Show role info
-        const roleInfo = ROLES[myRole] || ROLES.Warrior;
-        document.getElementById('player-role-display').innerText = `${roleInfo.icon} ${roleInfo.desc}`;
 
         // Show question text and image
         document.getElementById('player-question-text').innerText = data.questionText;
@@ -574,7 +531,7 @@ function handleHostMessage(data) {
     }
     else if (data.type === 'question-result') {
         const scoreSpan = document.getElementById('player-score');
-        const oldScore = parseInt(scoreSpan.innerText) || 0;
+        const oldScore = parseInt(scoreSpan.innerText.replace(/,/g, '')) || 0;
         const newScore = data.totalScore;
         
         // Count up animation
@@ -588,10 +545,10 @@ function handleHostMessage(data) {
         const counter = setInterval(() => {
             current += increment;
             count++;
-            scoreSpan.innerText = Math.round(current);
+            scoreSpan.innerText = Math.round(current).toLocaleString();
             if(count >= steps) {
                 clearInterval(counter);
-                scoreSpan.innerText = newScore;
+                scoreSpan.innerText = newScore.toLocaleString();
             }
         }, stepTime);
         
@@ -601,18 +558,21 @@ function handleHostMessage(data) {
         fbImg.className = 'feedback-anim'; void fbImg.offsetWidth; // reset
         
         // Calculate action feedback text
-        let actionPowerText = '';
-        if (data.correct) {
-            if (myRole === 'Cleric') actionPowerText = `+100 DMG / +8 HP Heal`;
-            else if (myRole === 'Mage') actionPowerText = `+200 DMG / +0.5x Combo`;
-            else if (myRole === 'Rogue') actionPowerText = data.points > 300 ? `💥 +750 CRIT DMG!` : `+250 DMG`;
-            else actionPowerText = `+400 DMG`;
-        } else {
-            actionPowerText = `Missed Action!`;
-        }
+        let actionPowerText = data.correct ? `⚡ +300 DMG / +5 HP Healed` : `Signal Interference!`;
 
         document.getElementById('player-points').innerText = actionPowerText;
-        document.getElementById('player-score-total').innerText = data.totalScore;
+        
+        // Dynamically style and set earned points
+        const pointsDisplay = document.getElementById('player-earned-points-display');
+        if (data.points >= 0) {
+            pointsDisplay.innerText = `+${data.points.toLocaleString()} Quiz Points`;
+            pointsDisplay.style.color = 'var(--secondary-shadow)';
+        } else {
+            pointsDisplay.innerText = `${data.points.toLocaleString()} Quiz Points`;
+            pointsDisplay.style.color = 'var(--wrong-shadow)';
+        }
+        
+        document.getElementById('player-score-total').innerText = data.totalScore.toLocaleString();
         
         if (data.correct) {
             playSound('correct');
