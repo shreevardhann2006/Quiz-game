@@ -435,7 +435,8 @@ function showHostLeaderboard(isFinal, isVictory) {
     if (isFinal) {
         document.getElementById('btn-next-question').style.display = 'none';
         const top3 = sorted.slice(0, 3).map(p => ({ name: p.name, score: p.score }));
-        broadcast({ type: 'game-over', top3: top3, isVictory: isVictory, finalBoss: BOSSES[activeBossIndex]?.name });
+        const finalStandings = sorted.map(p => ({ name: p.name, score: p.score }));
+        broadcast({ type: 'game-over', top3: top3, finalStandings: finalStandings, isVictory: isVictory, finalBoss: BOSSES[activeBossIndex]?.name });
         
         let podiumHtml = '';
         if (isVictory) {
@@ -445,12 +446,23 @@ function showHostLeaderboard(isFinal, isVictory) {
         }
 
         podiumHtml += '<h3>Top Contributors:</h3><div class="podium">';
-        if (top3[1]) podiumHtml += `<div class="podium-place place-2"><h3>2nd</h3><p>${top3[1].name}</p><p>${top3[1].score}</p></div>`;
-        if (top3[0]) podiumHtml += `<div class="podium-place place-1"><h3>1st 👑</h3><p>${top3[0].name}</p><p>${top3[0].score}</p></div>`;
-        if (top3[2]) podiumHtml += `<div class="podium-place place-3"><h3>3rd</h3><p>${top3[2].name}</p><p>${top3[2].score}</p></div>`;
+        if (top3[1]) podiumHtml += `<div class="podium-place place-2"><h3>2nd</h3><p>${top3[1].name}</p><p>${top3[1].score.toLocaleString()}</p></div>`;
+        if (top3[0]) podiumHtml += `<div class="podium-place place-1"><h3>1st 👑</h3><p>${top3[0].name}</p><p>${top3[0].score.toLocaleString()}</p></div>`;
+        if (top3[2]) podiumHtml += `<div class="podium-place place-3"><h3>3rd</h3><p>${top3[2].name}</p><p>${top3[2].score.toLocaleString()}</p></div>`;
         podiumHtml += '</div>';
 
         document.getElementById('final-winner-display').innerHTML = podiumHtml;
+        
+        // Populate final standings list on Host side
+        const standingsList = document.getElementById('final-standings-list');
+        standingsList.innerHTML = '';
+        sorted.forEach((p, i) => {
+            const item = document.createElement('div');
+            item.className = `leaderboard-item ${i < 3 ? 'rank-'+(i+1) : ''}`;
+            item.innerHTML = `<span>#${i+1} 🎮 ${p.name}</span> <span>${p.score.toLocaleString()} Points</span>`;
+            standingsList.appendChild(item);
+        });
+
         switchScreen('host-quiz-screen', 'result-screen');
         if (isVictory && typeof confetti === 'function') confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }});
     } else {
@@ -597,12 +609,25 @@ function handleHostMessage(data) {
         }
 
         podiumHtml += '<h3>Top Contributors:</h3><div class="podium">';
-        if (data.top3[1]) podiumHtml += `<div class="podium-place place-2"><h3>2nd</h3><p>${data.top3[1].name}</p><p>${data.top3[1].score}</p></div>`;
-        if (data.top3[0]) podiumHtml += `<div class="podium-place place-1"><h3>1st 👑</h3><p>${data.top3[0].name}</p><p>${data.top3[0].score}</p></div>`;
-        if (data.top3[2]) podiumHtml += `<div class="podium-place place-3"><h3>3rd</h3><p>${data.top3[2].name}</p><p>${data.top3[2].score}</p></div>`;
+        if (data.top3[1]) podiumHtml += `<div class="podium-place place-2"><h3>2nd</h3><p>${data.top3[1].name}</p><p>${data.top3[1].score.toLocaleString()}</p></div>`;
+        if (data.top3[0]) podiumHtml += `<div class="podium-place place-1"><h3>1st 👑</h3><p>${data.top3[0].name}</p><p>${data.top3[0].score.toLocaleString()}</p></div>`;
+        if (data.top3[2]) podiumHtml += `<div class="podium-place place-3"><h3>3rd</h3><p>${data.top3[2].name}</p><p>${data.top3[2].score.toLocaleString()}</p></div>`;
         podiumHtml += '</div>';
 
         document.getElementById('final-winner-display').innerHTML = podiumHtml;
+
+        // Populate final standings list on Player side
+        const standingsList = document.getElementById('final-standings-list');
+        standingsList.innerHTML = '';
+        if (data.finalStandings) {
+            data.finalStandings.forEach((p, i) => {
+                const item = document.createElement('div');
+                item.className = `leaderboard-item ${i < 3 ? 'rank-'+(i+1) : ''}`;
+                item.innerHTML = `<span>#${i+1} 🎮 ${p.name}</span> <span>${p.score.toLocaleString()} Points</span>`;
+                standingsList.appendChild(item);
+            });
+        }
+
         switchScreen('player-feedback-screen', 'result-screen');
     }
 }
