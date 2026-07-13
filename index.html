@@ -22,12 +22,12 @@
         
         <!-- =================== ROLE SELECTION =================== -->
         <div id="role-screen" class="screen active bounce-in">
-            <div class="icon-wrapper"><span class="icon">🚀</span></div>
-            <h1>Multiplayer Quiz Game</h1>
-            <p>Play with friends in real-time!</p>
+            <div class="icon-wrapper"><span class="icon">⚔️</span></div>
+            <h1>Quest of Instrumentation</h1>
+            <p>Team up with friends to defeat the Offset Orc, Drift Dragon, and Noise Leviathan!</p>
             <div class="role-buttons">
-                <button id="btn-host-role" class="bouncy-btn primary-btn">HOST A GAME</button>
-                <button id="btn-join-role" class="bouncy-btn secondary-btn">JOIN A GAME</button>
+                <button id="btn-host-role" class="bouncy-btn primary-btn">HOST A RAID</button>
+                <button id="btn-join-role" class="bouncy-btn secondary-btn">JOIN THE PARTY</button>
             </div>
         </div>
 
@@ -41,17 +41,46 @@
             <button id="btn-start-game" class="bouncy-btn primary-btn" disabled>START GAME</button>
         </div>
 
-        <!-- Host Quiz Screen (Shows Question) -->
+        <!-- Host Quiz Screen (Shows Battle & Question) -->
         <div id="host-quiz-screen" class="screen hidden">
-            <div class="hud" style="flex-direction: column; gap: 10px;">
+            <!-- Battlefield HP indicators -->
+            <div class="battlefield">
+                <div class="boss-section">
+                    <img id="boss-avatar" src="offset_orc.png" alt="Boss" class="boss-sprite">
+                    <div class="hp-status">
+                        <span class="hp-title" id="boss-name">Offset Orc</span>
+                        <div class="hp-bar-bg"><div id="boss-hp-fill" class="hp-bar-fill boss-hp" style="width: 100%;"></div></div>
+                        <span class="hp-text"><span id="boss-hp-current">1000</span>/<span id="boss-hp-max">1000</span> HP</span>
+                    </div>
+                </div>
+                
+                <div class="vs-divider">VS</div>
+
+                <div class="party-section">
+                    <div class="party-grid-mini">🛡️ Party</div>
+                    <div class="hp-status">
+                        <span class="hp-title">Party Health</span>
+                        <div class="hp-bar-bg"><div id="party-hp-fill" class="hp-bar-fill party-hp" style="width: 100%;"></div></div>
+                        <span class="hp-text"><span id="party-hp-current">100</span>/100 HP</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Battle Log popup overlay inside the host screen, shown between rounds -->
+            <div id="battle-log" class="battle-log hidden">
+                <div class="battle-log-title">⚔️ Round Resolution</div>
+                <div id="battle-log-messages" class="battle-log-messages"></div>
+            </div>
+
+            <div class="hud" style="flex-direction: column; gap: 10px; margin-top: 15px;">
                 <div style="display: flex; justify-content: space-between; width: 100%;">
-                    <div class="question-count">Q: <span id="host-q-count">1</span>/20</div>
+                    <div class="question-count">Stage: <span id="host-stage-count">1/3</span> | Q: <span id="host-q-count">1</span>/21</div>
                     <div class="timer-text" style="font-size: 24px; font-weight: 900;">⏱ <span id="host-timer">20</span>s</div>
                 </div>
-                <div class="timer-bar-bg" style="width: 100%; height: 15px; background: #eee; border-radius: 10px; overflow: hidden;"><div id="timer-bar-fill" class="timer-bar-fill" style="width: 100%; height: 100%; background: var(--secondary-color); border-radius: 10px; transition: width 1s linear, background 0.3s;"></div></div>
+                <div class="timer-bar-bg" style="width: 100%; height: 12px; background: #eee; border-radius: 10px; overflow: hidden;"><div id="timer-bar-fill" class="timer-bar-fill" style="width: 100%; height: 100%; background: var(--secondary-color); border-radius: 10px; transition: width 1s linear, background 0.3s;"></div></div>
             </div>
             
-            <div class="question-container">
+            <div class="question-container" style="margin-bottom: 20px;">
                 <h2 id="host-question-text">Question goes here?</h2>
                 <img id="host-question-image" src="" alt="Question Image" class="hidden-img pop-in">
             </div>
@@ -75,7 +104,32 @@
             <h1>Join Game</h1>
             <input type="text" id="input-pin" class="cool-input" placeholder="Enter Game PIN" maxlength="4">
             <input type="text" id="input-name" class="cool-input" placeholder="Enter Nickname" maxlength="12">
-            <button id="btn-join-game" class="bouncy-btn secondary-btn">JOIN</button>
+            
+            <h3 style="margin-top: 15px; margin-bottom: 10px; font-weight: 800;">Choose Your Class</h3>
+            <div class="class-selector">
+                <div class="class-card active" data-role="Warrior">
+                    <div class="class-card-icon">⚔️</div>
+                    <div class="class-card-name">Warrior</div>
+                    <div class="class-card-desc">High Damage (400 DMG)</div>
+                </div>
+                <div class="class-card" data-role="Rogue">
+                    <div class="class-card-icon">🗡️</div>
+                    <div class="class-card-name">Rogue</div>
+                    <div class="class-card-desc">Crit Chance (250/750 DMG)</div>
+                </div>
+                <div class="class-card" data-role="Mage">
+                    <div class="class-card-icon">🔮</div>
+                    <div class="class-card-name">Mage</div>
+                    <div class="class-card-desc">Spell Combo (+0.5x Dmg)</div>
+                </div>
+                <div class="class-card" data-role="Cleric">
+                    <div class="class-card-icon">💖</div>
+                    <div class="class-card-name">Cleric</div>
+                    <div class="class-card-desc">Heal (8 HP + 100 DMG)</div>
+                </div>
+            </div>
+
+            <button id="btn-join-game" class="bouncy-btn secondary-btn" style="margin-top: 20px;">JOIN THE RAID</button>
             <p id="join-error" class="error-text"></p>
         </div>
 
@@ -88,8 +142,9 @@
 
         <!-- Player Answer Screen (4 big buttons) -->
         <div id="player-answer-screen" class="screen hidden">
-            <div class="hud">
-                <div class="score-display">⭐ <span id="player-score">0</span></div>
+            <div class="hud" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="player-role-tag" id="player-role-display">⚔️ Warrior</div>
+                <div class="score-display">💥 <span id="player-score">0</span> Contribution</div>
             </div>
             <div class="question-container" style="min-height: auto; margin-bottom: 15px;">
                 <h2 id="player-question-text" style="font-size: 20px; margin-bottom: 10px;">Question goes here?</h2>
@@ -107,8 +162,8 @@
         <div id="player-feedback-screen" class="screen hidden">
             <img id="player-feedback-image" src="" alt="Feedback Animation" class="feedback-anim">
             <h1 id="player-feedback-text">Awesome!</h1>
-            <div class="points-awarded"><span id="player-points">0</span></div>
-            <p>Current Score: <span id="player-score-total">0</span></p>
+            <div class="points-awarded"><span id="player-points">+0 DMG</span></div>
+            <p>Total Contribution: <span id="player-score-total">0</span></p>
         </div>
 
         <!-- End Result Screen (Host and Player) -->

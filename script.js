@@ -80,8 +80,29 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let gameChannel = null;
 let isHost = false;
 
+// RPG Classes Configuration
+const ROLES = {
+    Warrior: { icon: "⚔️", desc: "Warrior", dmg: 400, heal: 0, multiplier: 0, critChance: 0 },
+    Rogue: { icon: "🗡️", desc: "Rogue", dmg: 250, heal: 0, multiplier: 0, critChance: 0.35, critDmg: 750 },
+    Mage: { icon: "🔮", desc: "Mage", dmg: 200, heal: 0, multiplier: 0.5, critChance: 0 },
+    Cleric: { icon: "💖", desc: "Cleric", dmg: 100, heal: 8, multiplier: 0, critChance: 0 }
+};
+
+// RPG Bosses Configuration
+const BOSSES = [
+    { name: "Offset Orc", image: "offset_orc.png", hpPerPlayer: 250, baseDmg: 5 },
+    { name: "Drift Dragon", image: "drift_dragon.png", hpPerPlayer: 500, baseDmg: 8 },
+    { name: "Noise Leviathan", image: "noise_leviathan.png", hpPerPlayer: 800, baseDmg: 12 }
+];
+
+// RPG State Variables
+let partyHP = 100;
+let bossHP = 100;
+let bossMaxHP = 100;
+let activeBossIndex = 0;
+
 // Host State
-let players = {}; // { senderId: { name, score, answered, lastPoints } }
+let players = {}; // { senderId: { name, role, score, answered, lastPoints, lastCorrect } }
 let currentQuestion = -1;
 let timerInterval = null;
 let timeRemaining = 0;
@@ -118,8 +139,8 @@ function initHost() {
 
 function handleClientMessage(senderId, data) {
     if (data.type === 'join') {
-        players[senderId] = { name: data.name, score: 0, answered: false, lastPoints: 0 };
-        gameChannel.send({ type: 'broadcast', event: 'host-message', payload: { target: senderId, data: { type: 'join-success' } } });
+        players[senderId] = { name: data.name, role: data.role || 'Warrior', score: 0, answered: false, lastPoints: 0, lastCorrect: false };
+        gameChannel.send({ type: 'broadcast', event: 'host-message', payload: { target: senderId, data: { type: 'join-success', role: data.role || 'Warrior' } } });
         updateLobbyPlayers();
     } else if (data.type === 'submit-answer') {
         const p = players[senderId];
@@ -129,15 +150,6 @@ function handleClientMessage(senderId, data) {
             document.getElementById('host-answers-count').innerText = answerCount;
             
             const isCorrect = (data.answer === questions[currentQuestion].answer);
-            let pts = 0;
-            if (isCorrect) {
-                pts = Math.floor(500 + (500 * (timeRemaining / QUESTION_TIME)));
-                p.score += pts;
-            } else {
-                pts = -333;
-                p.score += pts;
-            }
-            p.lastPoints = pts;
             p.lastCorrect = isCorrect;
             
             gameChannel.send({ type: 'broadcast', event: 'host-message', payload: { target: senderId, data: { type: 'answer-received' } } });
@@ -156,7 +168,8 @@ function updateLobbyPlayers() {
     keys.forEach(k => {
         const b = document.createElement('div');
         b.className = 'player-badge';
-        b.innerText = players[k].name;
+        const roleIcon = ROLES[players[k].role]?.icon || '⚔️';
+        b.innerText = `${roleIcon} ${players[k].name}`;
         list.appendChild(b);
     });
     const startBtn = document.getElementById('btn-start-game');
@@ -165,16 +178,50 @@ function updateLobbyPlayers() {
 
 document.getElementById('btn-start-game').onclick = () => {
     currentQuestion = -1;
+    activeBossIndex = 0;
+    partyHP = 100;
+    initActiveBoss();
     broadcast({ type: 'game-starting' });
     nextQuestion();
 };
 
 document.getElementById('btn-next-question').onclick = nextQuestion;
 
+function initActiveBoss() {
+    const currentBoss = BOSSES[activeBossIndex];
+    document.getElementById('boss-name').innerText = currentBoss.name;
+    document.getElementById('boss-avatar').src = currentBoss.image;
+    
+    const playerCount = Object.keys(players).length || 1;
+    bossMaxHP = currentBoss.hpPerPlayer * playerCount;
+    bossHP = bossMaxHP;
+    
+    updateBattlefieldUI();
+}
+
+function updateBattlefieldUI() {
+    document.getElementById('boss-hp-current').innerText = bossHP;
+    document.getElementById('boss-hp-max').innerText = bossMaxHP;
+    
+    const bossFill = document.getElementById('boss-hp-fill');
+    bossFill.style.width = `${(bossHP / bossMaxHP) * 100}%`;
+    
+    document.getElementById('party-hp-current').innerText = partyHP;
+    const partyFill = document.getElementById('party-hp-fill');
+    partyFill.style.width = `${partyHP}%`;
+    
+    document.getElementById('host-stage-count').innerText = `${activeBossIndex + 1}/${BOSSES.length}`;
+}
+
 function nextQuestion() {
     currentQuestion++;
     if (currentQuestion >= questions.length) {
-        showHostLeaderboard(true); // final
+        // Survived all questions but didn't kill the final boss
+        if (bossHP > 0) {
+            showHostLeaderboard(true, false);
+        } else {
+            showHostLeaderboard(true, true);
+        }
         return;
     }
     
@@ -220,7 +267,13 @@ function nextQuestion() {
         type: 'new-question', 
         questionText: q.question, 
         image: q.image, 
-        choices: q.choices 
+        choices: q.choices,
+        bossName: BOSSES[activeBossIndex].name,
+        bossImage: BOSSES[activeBossIndex].image,
+        bossHP: bossHP,
+        bossMaxHP: bossMaxHP,
+        partyHP: partyHP,
+        stage: `${activeBossIndex + 1}/${BOSSES.length}`
     });
     
     clearInterval(timerInterval);
@@ -250,27 +303,151 @@ function endQuestion() {
         if(i === q.answer) choices[i].classList.add('correct-reveal');
         else choices[i].classList.add('wrong-reveal');
     }
-    
-    // Send results to players
-    Object.keys(players).forEach(k => {
+
+    let totalDamage = 0;
+    let totalHealing = 0;
+    let mageMultiplierBonus = 0;
+    let battleLogs = [];
+    let incorrectCount = 0;
+
+    const keys = Object.keys(players);
+    keys.forEach(k => {
         const p = players[k];
-        // If they didn't answer, they get 0
-        if(!p.answered) { p.lastPoints = 0; p.lastCorrect = false; }
-        gameChannel.send({ type: 'broadcast', event: 'host-message', payload: { target: k, data: { type: 'question-result', correct: p.lastCorrect, points: p.lastPoints, totalScore: p.score } } });
+        if (!p.answered) {
+            p.lastCorrect = false;
+        }
+
+        const role = p.role || 'Warrior';
+        const roleStats = ROLES[role] || ROLES.Warrior;
+
+        if (p.lastCorrect) {
+            let dmg = roleStats.dmg;
+            let heal = roleStats.heal;
+
+            if (role === 'Rogue') {
+                if (Math.random() < roleStats.critChance) {
+                    dmg = roleStats.critDmg;
+                    battleLogs.push(`🗡️ Rogue ${p.name} CRITICAL HIT for ${dmg} DMG!`);
+                } else {
+                    battleLogs.push(`🗡️ Rogue ${p.name} slashed for ${dmg} DMG!`);
+                }
+            } else if (role === 'Warrior') {
+                battleLogs.push(`⚔️ Warrior ${p.name} dealt ${dmg} DMG!`);
+            } else if (role === 'Mage') {
+                mageMultiplierBonus += roleStats.multiplier;
+                battleLogs.push(`🔮 Mage ${p.name} cast Spell! (+0.5x combo)`);
+            } else if (role === 'Cleric') {
+                battleLogs.push(`💖 Cleric ${p.name} healed party for ${heal} HP & dealt ${dmg} DMG!`);
+            }
+
+            totalDamage += dmg;
+            totalHealing += heal;
+            p.lastPoints = dmg + heal * 10; // contribution points
+            p.score += p.lastPoints;
+        } else {
+            incorrectCount++;
+            battleLogs.push(`💀 ${p.name} missed their action!`);
+            p.lastPoints = 0;
+        }
     });
+
+    // Apply multiplier from Mages
+    const finalMultiplier = 1.0 + mageMultiplierBonus;
+    if (mageMultiplierBonus > 0 && totalDamage > 0) {
+        totalDamage = Math.floor(totalDamage * finalMultiplier);
+        battleLogs.push(`✨ Mage combo multiplied team damage to ${totalDamage}!`);
+    }
+
+    // Boss damage calculation
+    const currentBoss = BOSSES[activeBossIndex];
+    let bossDamageDealt = incorrectCount * currentBoss.baseDmg;
     
-    // Show Answer Reveal for 2 seconds, then show Leaderboard
-    setTimeout(() => { 
-        showHostLeaderboard(false); 
-        
-        // Show Leaderboard for 3 seconds, then auto-advance to next question
-        setTimeout(() => {
+    // Apply changes
+    bossHP = Math.max(0, bossHP - totalDamage);
+    partyHP = Math.min(100, Math.max(0, partyHP + totalHealing - bossDamageDealt));
+
+    if (bossDamageDealt > 0) {
+        battleLogs.push(`👹 ${currentBoss.name} counter-attacked the party for ${bossDamageDealt} DMG!`);
+    } else {
+        battleLogs.push(`🛡️ Party fully shielded from ${currentBoss.name}'s attack!`);
+    }
+
+    // Send results to players
+    keys.forEach(k => {
+        const p = players[k];
+        gameChannel.send({ 
+            type: 'broadcast', 
+            event: 'host-message', 
+            payload: { 
+                target: k, 
+                data: { 
+                    type: 'question-result', 
+                    correct: p.lastCorrect, 
+                    points: p.lastPoints, 
+                    totalScore: p.score 
+                } 
+            } 
+        });
+    });
+
+    // Show battle resolution log on host
+    const logDiv = document.getElementById('battle-log');
+    const logMsgs = document.getElementById('battle-log-messages');
+    logMsgs.innerHTML = '';
+    
+    battleLogs.forEach(log => {
+        const item = document.createElement('div');
+        item.className = 'battle-log-entry';
+        if (log.includes('DMG')) item.classList.add('dmg');
+        else if (log.includes('healed') || log.includes('HP')) item.classList.add('heal');
+        else if (log.includes('combo') || log.includes('multiplied')) item.classList.add('buff');
+        else if (log.includes('counter-attacked')) item.classList.add('boss-dmg');
+        item.innerText = log;
+        logMsgs.appendChild(item);
+    });
+
+    logDiv.classList.remove('hidden');
+
+    // Visual trigger: shake boss avatar if hit
+    const bossAvatar = document.getElementById('boss-avatar');
+    if (totalDamage > 0) {
+        bossAvatar.classList.add('hit');
+        setTimeout(() => bossAvatar.classList.remove('hit'), 500);
+    }
+
+    // Update HP bars smoothly
+    updateBattlefieldUI();
+
+    // Check game over or boss defeat
+    setTimeout(() => {
+        logDiv.classList.add('hidden');
+
+        if (partyHP <= 0) {
+            // Defeat
+            showHostLeaderboard(true, false);
+        } else if (bossHP <= 0) {
+            // Boss Defeated!
+            bossAvatar.classList.add('defeated');
+            setTimeout(() => {
+                bossAvatar.classList.remove('defeated');
+                activeBossIndex++;
+                if (activeBossIndex >= BOSSES.length) {
+                    // Victory! All bosses dead
+                    showHostLeaderboard(true, true);
+                } else {
+                    // Next Boss
+                    initActiveBoss();
+                    nextQuestion();
+                }
+            }, 1000);
+        } else {
+            // Battle continues
             nextQuestion();
-        }, 3000);
-    }, 2000);
+        }
+    }, 4500); // show log for 4.5 seconds
 }
 
-function showHostLeaderboard(isFinal) {
+function showHostLeaderboard(isFinal, isVictory) {
     const list = document.getElementById('leaderboard-list');
     list.innerHTML = '';
     
@@ -278,16 +455,24 @@ function showHostLeaderboard(isFinal) {
     sorted.forEach((p, i) => {
         const item = document.createElement('div');
         item.className = `leaderboard-item ${i < 3 ? 'rank-'+(i+1) : ''}`;
-        item.innerHTML = `<span>#${i+1} ${p.name}</span> <span>${p.score}</span>`;
+        const roleIcon = ROLES[p.role]?.icon || '⚔️';
+        item.innerHTML = `<span>#${i+1} ${roleIcon} ${p.name} (${p.role})</span> <span>${p.score} Contribution</span>`;
         list.appendChild(item);
     });
     
     if (isFinal) {
         document.getElementById('btn-next-question').style.display = 'none';
         const top3 = sorted.slice(0, 3).map(p => ({ name: p.name, score: p.score }));
-        broadcast({ type: 'game-over', top3: top3 });
+        broadcast({ type: 'game-over', top3: top3, isVictory: isVictory, finalBoss: BOSSES[activeBossIndex]?.name });
         
-        let podiumHtml = '<div class="podium">';
+        let podiumHtml = '';
+        if (isVictory) {
+            podiumHtml += `<h2 style="color: #2ecc71; margin-bottom: 20px;">🎉 VICTORY! Party defeated the bosses!</h2>`;
+        } else {
+            podiumHtml += `<h2 style="color: #e74c3c; margin-bottom: 20px;">💀 DEFEAT! The party was wiped out by ${BOSSES[activeBossIndex]?.name || 'Boss'}...</h2>`;
+        }
+
+        podiumHtml += '<h3>Top Contributors:</h3><div class="podium">';
         if (top3[1]) podiumHtml += `<div class="podium-place place-2"><h3>2nd</h3><p>${top3[1].name}</p><p>${top3[1].score}</p></div>`;
         if (top3[0]) podiumHtml += `<div class="podium-place place-1"><h3>1st 👑</h3><p>${top3[0].name}</p><p>${top3[0].score}</p></div>`;
         if (top3[2]) podiumHtml += `<div class="podium-place place-3"><h3>3rd</h3><p>${top3[2].name}</p><p>${top3[2].score}</p></div>`;
@@ -295,7 +480,7 @@ function showHostLeaderboard(isFinal) {
 
         document.getElementById('final-winner-display').innerHTML = podiumHtml;
         switchScreen('host-quiz-screen', 'result-screen');
-        if (typeof confetti === 'function') confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }});
+        if (isVictory && typeof confetti === 'function') confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }});
     } else {
         switchScreen('host-quiz-screen', 'host-leaderboard-screen');
     }
@@ -310,6 +495,17 @@ function broadcast(data) {
 
 // ======================== PLAYER LOGIC ========================
 let myPlayerId = Math.random().toString(36).substring(7);
+let myRole = 'Warrior';
+
+// Class Selector Setup
+document.querySelectorAll('.class-card').forEach(card => {
+    card.onclick = () => {
+        document.querySelectorAll('.class-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        myRole = card.getAttribute('data-role');
+        playSound('pop');
+    };
+});
 
 document.getElementById('btn-join-game').onclick = () => {
     const pin = document.getElementById('input-pin').value.trim();
@@ -332,7 +528,7 @@ document.getElementById('btn-join-game').onclick = () => {
         gameChannel.subscribe((status) => {
             if (status === 'SUBSCRIBED') {
                 errorText.innerText = "Joined! Waiting for host...";
-                gameChannel.send({ type: 'broadcast', event: 'client-message', payload: { sender: myPlayerId, data: { type: 'join', name: name } } });
+                gameChannel.send({ type: 'broadcast', event: 'client-message', payload: { sender: myPlayerId, data: { type: 'join', name: name, role: myRole } } });
             } else if (status === 'CHANNEL_ERROR') {
                 errorText.innerText = "Failed to connect to game server.";
             }
@@ -344,12 +540,17 @@ document.getElementById('btn-join-game').onclick = () => {
 
 function handleHostMessage(data) {
     if (data.type === 'join-success') {
+        myRole = data.role || 'Warrior';
         switchScreen('player-join-screen', 'player-waiting-screen');
     } 
     else if (data.type === 'game-starting') {
         document.getElementById('player-waiting-text').innerText = "Get Ready!";
     }
     else if (data.type === 'new-question') {
+        // Show role info
+        const roleInfo = ROLES[myRole] || ROLES.Warrior;
+        document.getElementById('player-role-display').innerText = `${roleInfo.icon} ${roleInfo.desc}`;
+
         // Show question text and image
         document.getElementById('player-question-text').innerText = data.questionText;
         const img = document.getElementById('player-question-image');
@@ -399,25 +600,43 @@ function handleHostMessage(data) {
         
         fbImg.className = 'feedback-anim'; void fbImg.offsetWidth; // reset
         
-        document.getElementById('player-points').innerText = data.points > 0 ? '+' + data.points : data.points;
+        // Calculate action feedback text
+        let actionPowerText = '';
+        if (data.correct) {
+            if (myRole === 'Cleric') actionPowerText = `+100 DMG / +8 HP Heal`;
+            else if (myRole === 'Mage') actionPowerText = `+200 DMG / +0.5x Combo`;
+            else if (myRole === 'Rogue') actionPowerText = data.points > 300 ? `💥 +750 CRIT DMG!` : `+250 DMG`;
+            else actionPowerText = `+400 DMG`;
+        } else {
+            actionPowerText = `Missed Action!`;
+        }
+
+        document.getElementById('player-points').innerText = actionPowerText;
         document.getElementById('player-score-total').innerText = data.totalScore;
         
         if (data.correct) {
             playSound('correct');
-            img.src = 'cartoon_correct.png';
-            img.classList.add('feedback-anim-correct');
-            txt.innerText = "CORRECT!"; txt.className = 'correct-text';
+            fbImg.src = 'cartoon_correct.png';
+            fbImg.classList.add('feedback-anim-correct');
+            txt.innerText = "ACTION HIT!"; txt.className = 'correct-text';
             if (typeof confetti === 'function') confetti({ particleCount: 50, spread: 60 });
         } else {
             playSound('wrong');
-            img.src = 'cartoon_wrong.png';
-            img.classList.add('feedback-anim-wrong');
-            txt.innerText = "WRONG!"; txt.className = 'wrong-text';
+            fbImg.src = 'cartoon_wrong.png';
+            fbImg.classList.add('feedback-anim-wrong');
+            txt.innerText = "ACTION MISSED!"; txt.className = 'wrong-text';
         }
         switchScreen('player-answer-screen', 'player-feedback-screen');
     }
     else if (data.type === 'game-over') {
-        let podiumHtml = '<div class="podium">';
+        let podiumHtml = '';
+        if (data.isVictory) {
+            podiumHtml += `<h2 style="color: #2ecc71; margin-bottom: 20px;">🎉 VICTORY! Team defeated the bosses!</h2>`;
+        } else {
+            podiumHtml += `<h2 style="color: #e74c3c; margin-bottom: 20px;">💀 DEFEAT! Wiped out by ${data.finalBoss || 'Boss'}...</h2>`;
+        }
+
+        podiumHtml += '<h3>Top Contributors:</h3><div class="podium">';
         if (data.top3[1]) podiumHtml += `<div class="podium-place place-2"><h3>2nd</h3><p>${data.top3[1].name}</p><p>${data.top3[1].score}</p></div>`;
         if (data.top3[0]) podiumHtml += `<div class="podium-place place-1"><h3>1st 👑</h3><p>${data.top3[0].name}</p><p>${data.top3[0].score}</p></div>`;
         if (data.top3[2]) podiumHtml += `<div class="podium-place place-3"><h3>3rd</h3><p>${data.top3[2].name}</p><p>${data.top3[2].score}</p></div>`;

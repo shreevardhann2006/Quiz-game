@@ -168,9 +168,259 @@ p { font-size: 18px; color: #666; margin-bottom: 30px; font-weight: 600; }
 
 @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
 
+/* RPG Theme & Battlefield Styles */
+.battlefield {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #2c3e50, #3498db);
+    border-radius: 20px;
+    padding: 20px;
+    color: white;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.4), 0 10px 25px rgba(0,0,0,0.2);
+    margin-bottom: 20px;
+    border: 3px solid rgba(255,255,255,0.1);
+    position: relative;
+    overflow: hidden;
+}
+.battlefield::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.4) 100%);
+    pointer-events: none;
+}
+
+.boss-section, .party-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1;
+}
+
+.vs-divider {
+    font-size: 26px;
+    font-weight: 900;
+    color: #e74c3c;
+    text-shadow: 0 0 10px rgba(231,76,60,0.8);
+    font-style: italic;
+    padding: 0 15px;
+    z-index: 1;
+    animation: pulse 1.5s infinite;
+}
+
+.boss-sprite {
+    width: 90px;
+    height: 90px;
+    object-fit: contain;
+    border-radius: 15px;
+    border: 3px solid #ff7675;
+    background: rgba(0,0,0,0.3);
+    margin-bottom: 10px;
+    animation: bossGlow 2s infinite alternate ease-in-out;
+    transition: all 0.3s;
+}
+.boss-sprite.hit {
+    animation: bossHit 0.5s ease-out;
+    filter: brightness(2) saturate(2);
+}
+.boss-sprite.defeated {
+    animation: bossDefeated 1s forwards;
+}
+
+.party-grid-mini {
+    background: rgba(255,255,255,0.15);
+    padding: 6px 15px;
+    border-radius: 15px;
+    font-weight: 800;
+    font-size: 16px;
+    border: 2px dashed rgba(255,255,255,0.3);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hp-status {
+    width: 100%;
+    max-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.hp-title {
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+.hp-bar-bg {
+    width: 100%;
+    height: 16px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.2);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+}
+
+.hp-bar-fill {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.5s cubic-bezier(0.1, 0.8, 0.2, 1);
+}
+.boss-hp {
+    background: linear-gradient(90deg, #e74c3c, #ff7675);
+    box-shadow: 0 0 10px rgba(231,76,60,0.5);
+}
+.party-hp {
+    background: linear-gradient(90deg, #2ecc71, #a8e6cf);
+    box-shadow: 0 0 10px rgba(46,204,113,0.5);
+}
+
+.hp-text {
+    font-size: 13px;
+    font-weight: 700;
+    text-align: right;
+    opacity: 0.9;
+}
+
+/* Battle Log Styles */
+.battle-log {
+    background: rgba(44, 62, 80, 0.95);
+    border: 4px solid #f1c40f;
+    border-radius: 20px;
+    padding: 15px;
+    margin: 15px 0;
+    color: white;
+    text-align: left;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    z-index: 100;
+    animation: logSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.battle-log-title {
+    font-size: 18px;
+    font-weight: 900;
+    color: #f1c40f;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+.battle-log-messages {
+    max-height: 180px;
+    overflow-y: auto;
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.battle-log-entry {
+    background: rgba(0,0,0,0.2);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border-left: 4px solid var(--secondary-color);
+    animation: flyIn 0.3s forwards;
+}
+.battle-log-entry.dmg { border-left-color: #e74c3c; color: #ff7675; }
+.battle-log-entry.heal { border-left-color: #2ecc71; color: #2ecc71; }
+.battle-log-entry.buff { border-left-color: #9b59b6; color: #d63031; }
+.battle-log-entry.boss-dmg { border-left-color: #e67e22; color: #ff9f43; }
+
+/* Class Selector Card Styles */
+.class-selector {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 15px 0;
+    width: 100%;
+}
+.class-card {
+    background: #fdfefe;
+    border: 3px solid #eee;
+    border-radius: 18px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+}
+.class-card:hover {
+    transform: translateY(-3px);
+    border-color: #bdc3c7;
+}
+.class-card.active {
+    border-color: var(--secondary-color);
+    background: rgba(72, 219, 251, 0.05);
+    box-shadow: 0 8px 20px rgba(72, 219, 251, 0.15);
+    transform: scale(1.03);
+}
+.class-card-icon {
+    font-size: 32px;
+    margin-bottom: 5px;
+}
+.class-card-name {
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--text-dark);
+}
+.class-card-desc {
+    font-size: 12px;
+    color: #7f8c8d;
+    font-weight: 600;
+    margin-top: 3px;
+    line-height: 1.2;
+}
+
+/* Player Screen Class Badge */
+.player-role-tag {
+    background: rgba(0,0,0,0.05);
+    border-radius: 15px;
+    padding: 5px 12px;
+    font-weight: 800;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-dark);
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+/* RPG Animations */
+@keyframes bossGlow {
+    0% { box-shadow: 0 0 10px rgba(255,118,117,0.3); transform: translateY(0); }
+    100% { box-shadow: 0 0 20px rgba(255,118,117,0.8); transform: translateY(-5px); }
+}
+@keyframes bossHit {
+    0% { transform: scale(1) translateX(0); }
+    20% { transform: scale(0.9) translateX(-15px) rotate(-5deg); }
+    40% { transform: scale(1.1) translateX(15px) rotate(5deg); }
+    60% { transform: scale(0.95) translateX(-10px); }
+    80% { transform: scale(1.05) translateX(10px); }
+    100% { transform: scale(1) translateX(0); }
+}
+@keyframes bossDefeated {
+    0% { transform: scale(1); filter: brightness(1) grayscale(0); opacity: 1; }
+    50% { transform: scale(1.2) rotate(15deg); filter: brightness(3) grayscale(0.5); opacity: 0.8; }
+    100% { transform: scale(0) rotate(360deg); filter: brightness(10) grayscale(1); opacity: 0; }
+}
+@keyframes logSlideIn {
+    0% { transform: translateY(-30px) scale(0.9); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
 @media (max-width: 600px) {
     .choices { grid-template-columns: 1fr; }
     .choice-box { padding: 15px; font-size: 16px; }
     .container { padding: 20px; border-radius: 20px; }
-    .player-choices { height: 400px; }
+    .player-choices { height: auto; }
+    .battlefield { flex-direction: column; gap: 15px; }
+    .vs-divider { transform: rotate(90deg); padding: 5px 0; }
+    .class-selector { grid-template-columns: 1fr; }
 }
