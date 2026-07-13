@@ -418,9 +418,67 @@ p { font-size: 18px; color: #666; margin-bottom: 30px; font-weight: 600; }
 @media (max-width: 600px) {
     .choices { grid-template-columns: 1fr; }
     .choice-box { padding: 15px; font-size: 16px; }
-    .container { padding: 20px; border-radius: 20px; }
+    .container { padding: 10px 0; }
+    .screen { padding: 20px 15px; border-radius: 20px; }
     .player-choices { height: auto; }
-    .battlefield { flex-direction: column; gap: 15px; }
-    .vs-divider { transform: rotate(90deg); padding: 5px 0; }
-    .class-selector { grid-template-columns: 1fr; }
+    
+    .cool-input {
+        width: 100%;
+        max-width: 260px;
+        padding: 12px 15px;
+        font-size: 18px;
+        border-radius: 15px;
+    }
+    
+    /* Class Selector compact list layout for mobile */
+    .class-selector {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    .class-card {
+        flex-direction: row;
+        align-items: center;
+        padding: 10px 15px;
+        gap: 15px;
+        text-align: left;
+        border-radius: 15px;
+    }
+    .class-card-icon {
+        font-size: 28px;
+        margin-bottom: 0;
+    }
+    .class-card-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .class-card-name {
+        font-size: 15px;
+    }
+    .class-card-desc {
+        font-size: 11px;
+        margin-top: 0;
+    }
+
+    /* Compact Player choices for mobile */
+    .player-btn {
+        padding: 12px 18px;
+        font-size: 18px;
+        border-radius: 30px;
+        gap: 12px;
+    }
+    .candy-label-player {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+    .player-btn .choice-text {
+        font-size: 14px !important;
+    }
+    
+    /* Battlefield and general elements */
+    .battlefield { flex-direction: column; gap: 12px; padding: 15px; }
+    .vs-divider { transform: rotate(90deg); padding: 2px 0; font-size: 20px; }
+    .boss-sprite { width: 70px; height: 70px; }
+    .pin-display { font-size: 32px; padding: 8px 20px; }
 }
