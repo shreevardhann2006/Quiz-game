@@ -125,8 +125,14 @@ p { font-size: 18px; color: #666; margin-bottom: 30px; font-weight: 600; }
 /* Choices (Player View - massive candy buttons) */
 .player-choices { display: flex; flex-direction: column; gap: 15px; width: 100%; height: auto; }
 .player-btn {
-    border: none; border-radius: 50px; cursor: pointer; transition: all 0.1s; font-size: 32px; font-weight: 900;
-    color: white; padding: 25px 0; font-family: 'Nunito', sans-serif; position: relative; overflow: hidden;
+    border: none; border-radius: 50px; cursor: pointer; transition: all 0.1s; font-size: 24px; font-weight: 900;
+    color: white; padding: 15px 20px; font-family: 'Nunito', sans-serif; position: relative; overflow: hidden;
+    display: flex; align-items: center; gap: 15px;
+}
+.candy-label-player {
+    background: rgba(255,255,255,0.3); color: white; width: 40px; height: 40px; 
+    display: flex; justify-content: center; align-items: center; border-radius: 50%; font-size: 20px; font-weight: 900;
+    flex-shrink: 0;
 }
 .player-btn::after { content: ''; position: absolute; top: 5px; left: 10%; width: 80%; height: 20px; background: rgba(255,255,255,0.3); border-radius: 20px; }
 .player-btn:active:not(:disabled) { transform: translateY(10px); box-shadow: 0 0 0 transparent !important; }

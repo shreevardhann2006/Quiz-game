@@ -216,7 +216,12 @@ function nextQuestion() {
     timeRemaining = QUESTION_TIME;
     document.getElementById('host-timer').innerText = timeRemaining;
     
-    broadcast({ type: 'new-question' });
+    broadcast({ 
+        type: 'new-question', 
+        questionText: q.question, 
+        image: q.image, 
+        choices: q.choices 
+    });
     
     clearInterval(timerInterval);
     timerInterval = setInterval(() => {
@@ -345,8 +350,21 @@ function handleHostMessage(data) {
         document.getElementById('player-waiting-text').innerText = "Get Ready!";
     }
     else if (data.type === 'new-question') {
-        // Reset buttons
-        document.querySelectorAll('.player-btn').forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+        // Show question text and image
+        document.getElementById('player-question-text').innerText = data.questionText;
+        const img = document.getElementById('player-question-image');
+        if (data.image) {
+            img.src = data.image; img.classList.remove('hidden-img');
+        } else {
+            img.src = ""; img.classList.add('hidden-img');
+        }
+
+        // Reset buttons and show choice text
+        document.querySelectorAll('.player-btn').forEach((b, idx) => { 
+            b.disabled = false; 
+            b.style.opacity = '1'; 
+            b.querySelector('.choice-text').innerText = data.choices[idx];
+        });
         switchScreen('player-waiting-screen', 'player-answer-screen');
         switchScreen('player-feedback-screen', 'player-answer-screen');
     }

@@ -91,11 +91,15 @@
             <div class="hud">
                 <div class="score-display">⭐ <span id="player-score">0</span></div>
             </div>
+            <div class="question-container" style="min-height: auto; margin-bottom: 15px;">
+                <h2 id="player-question-text" style="font-size: 20px; margin-bottom: 10px;">Question goes here?</h2>
+                <img id="player-question-image" src="" alt="Question Image" class="hidden-img pop-in" style="max-height: 100px;">
+            </div>
             <div class="player-choices">
-                <button class="player-btn candy-btn-0" data-idx="0">A</button>
-                <button class="player-btn candy-btn-1" data-idx="1">B</button>
-                <button class="player-btn candy-btn-2" data-idx="2">C</button>
-                <button class="player-btn candy-btn-3" data-idx="3">D</button>
+                <button class="player-btn candy-btn-0" data-idx="0"><div class="candy-label-player">A</div><div class="choice-text" style="flex:1; text-align:left; font-size: 16px; line-height: 1.2;"></div></button>
+                <button class="player-btn candy-btn-1" data-idx="1"><div class="candy-label-player">B</div><div class="choice-text" style="flex:1; text-align:left; font-size: 16px; line-height: 1.2;"></div></button>
+                <button class="player-btn candy-btn-2" data-idx="2"><div class="candy-label-player">C</div><div class="choice-text" style="flex:1; text-align:left; font-size: 16px; line-height: 1.2;"></div></button>
+                <button class="player-btn candy-btn-3" data-idx="3"><div class="candy-label-player">D</div><div class="choice-text" style="flex:1; text-align:left; font-size: 16px; line-height: 1.2;"></div></button>
             </div>
         </div>
 
